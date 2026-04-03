@@ -1,53 +1,64 @@
-name: CI/CD to GHCR
+name: Build and Push Go Web App
 
 on:
   push:
-    branches: [ "main" ] # 仅在推送到主分支时触发
-    tags: [ 'v*' ]       # 或者是推送版本标签时触发
-
-env:
-  REGISTRY: ghcr.io
-  # 镜像名称通常建议：ghcr.io/用户名/项目名
-  IMAGE_NAME: ${{ github.repository }}
+    branches: [ "main" ] # 仅在推送到 main 分支时触发
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    # 授予操作权限，以便推送镜像到 GHCR
     permissions:
       contents: read
       packages: write
 
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. 登录 GHCR
-      - name: Log in to GHCR
+      # 1. 设置 Go 环境（用于运行测试，可选）
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Run Tests
+        run: go test -v ./...
+
+      # 2. 设置 Docker Buildx (解决 "Cache export not supported" 的关键)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 3. 登录 GitHub 容器注册表 (GHCR)
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 2. 提取 Docker 标签信息（自动生成 :latest 或 :v1.0.0）
-      - name: Extract metadata
+      # 4. 提取元数据（自动生成标签和版本信息）
+      - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{version}}
-            type=sha,format=long
-            latest
+            type=ref,event=branch
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
 
-      # 3. 构建并推送镜像
-      - name: Build and push
+      # 5. 构建并推送镜像
+      - name: Build and Push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          # 修正这里：使用 steps 而不是 id
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # 启用 GHA 缓存，显著提升二次构建速度
           cache-from: type=gha
           cache-to: type=gha,mode=max
