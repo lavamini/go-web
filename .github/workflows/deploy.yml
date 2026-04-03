@@ -1,0 +1,54 @@
+name: CI/CD to GHCR
+
+on:
+  push:
+    branches: [ "main" ] # 仅在推送到主分支时触发
+    tags: [ 'v*' ]       # 或者是推送版本标签时触发
+
+env:
+  REGISTRY: ghcr.io
+  # 镜像名称通常建议：ghcr.io/用户名/项目名
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 1. 登录 GHCR
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. 提取 Docker 标签信息（自动生成 :latest 或 :v1.0.0）
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,format=long
+            latest
+
+      # 3. 构建并推送镜像
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ id.meta.outputs.tags }}
+          labels: ${{ id.meta.outputs.labels }}
+          # 缓存优化：加速后续构建
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
