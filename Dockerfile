@@ -1,5 +1,5 @@
 # 第一阶段：编译阶段
-FROM golang:1.21-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /app
 # 开启 CGO 禁用以获得静态二进制文件
 ENV CGO_ENABLED=0 GOOS=linux
