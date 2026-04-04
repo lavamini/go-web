@@ -2,11 +2,9 @@ name: Build and Push Go Web App
 
 on:
   push:
-    branches: [ "main" ]
+    #branches: [ "main" ]
     tags:
       - 'v*'
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
   build-and-push:
