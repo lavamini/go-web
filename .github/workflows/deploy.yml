@@ -17,7 +17,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
 
-      # 1. 设置 Go 环境（用于运行测试，可选）
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -27,11 +26,9 @@ jobs:
       - name: Run Tests
         run: go test -v ./...
 
-      # 2. 设置 Docker Buildx (解决 "Cache export not supported" 的关键)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      # 3. 登录 GitHub 容器注册表 (GHCR)
       - name: Login to GitHub Container Registry
         if: startsWith(github.ref, 'refs/tags/v')
         uses: docker/login-action@v4
@@ -40,7 +37,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 4. 提取元数据（自动生成标签和版本信息）
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -52,7 +48,6 @@ jobs:
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
-      # 5. 构建并推送镜像
       - name: Build and Push
         uses: docker/build-push-action@v7
         with:
@@ -60,6 +55,5 @@ jobs:
           push: ${{ startsWith(github.ref, 'refs/tags/v') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # 启用 GHA 缓存，显著提升二次构建速度
           cache-from: type=gha
           cache-to: type=gha,mode=max
