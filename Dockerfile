@@ -1,19 +1,18 @@
-# 第一阶段：编译阶段
+# Stage 1: Build stage
 FROM golang:1.26-alpine AS builder
+RUN apk add --no-cache upx
 WORKDIR /app
-# 开启 CGO 禁用以获得静态二进制文件
-ENV CGO_ENABLED=0 GOOS=linux
+ENV CGO_ENABLED=0
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -ldflags="-s -w" -o main .
+RUN go build -ldflags="-s -w" -o main . && \
+    upx --best --lzma main
 
-# 第二阶段：运行阶段
+# Stage 2: Run stage
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /root/
-# 从编译阶段拷贝二进制文件
 COPY --from=builder /app/main .
-# Fiber 默认端口通常是 3000
 EXPOSE 3000
 CMD ["./main"]
