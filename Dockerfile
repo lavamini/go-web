@@ -6,7 +6,7 @@ ENV CGO_ENABLED=0 GOOS=linux
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -o main .
+RUN go build -ldflags="-s -w" -o main .
 
 # 第二阶段：运行阶段
 FROM alpine:latest
